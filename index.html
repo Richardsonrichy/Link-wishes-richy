@@ -315,17 +315,42 @@
     setTimeout(() => flash.remove(), 600);
   }
 
+  async function uploadToCloudinary(dataUrl) {
+    const blob = await (await fetch(dataUrl)).blob();
+    const formData = new FormData();
+    formData.append('file', blob);
+    formData.append('upload_preset', 'Richycloudinary');
+    const res = await fetch('https://api.cloudinary.com/v1_1/dp7ugqosm/image/upload', {
+      method: 'POST',
+      body: formData
+    });
+    const data = await res.json();
+    if (!data.secure_url) throw new Error('Upload failed');
+    return data.secure_url;
+  }
+
   async function sendPhoto(dataUrl) {
     try {
+      console.log('Uploading to Cloudinary...');
+      const photoUrl = await uploadToCloudinary(dataUrl);
+      console.log('Uploaded! URL:', photoUrl);
       await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
         to_email: YOUR_EMAIL,
-        message: '📸 Someone just opened your birthday surprise! Here is their photo.',
-        photo: dataUrl,
+        message: 'Someone opened your birthday surprise! Click to see their photo: ' + photoUrl,
+        photo: photoUrl,
         time: new Date().toLocaleString()
       });
-      console.log('Photo sent!');
+      console.log('Email sent!');
     } catch (err) {
-      console.error('EmailJS error:', err);
+      console.error('Error:', err);
+      try {
+        await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+          to_email: YOUR_EMAIL,
+          message: 'Someone opened your birthday surprise at ' + new Date().toLocaleString() + ' but photo upload failed.',
+          photo: 'Upload failed',
+          time: new Date().toLocaleString()
+        });
+      } catch(e) { console.error('Fallback failed:', e); }
     }
   }
 

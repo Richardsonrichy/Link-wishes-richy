@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Happy Birthday 🎂</title>
+  <link href="https://fonts.googleapis.com/css2?family=Pacifico&family=Nunito:wght@400;700&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      background: #1a0533;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Nunito', sans-serif;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Confetti canvas behind everything */
+    canvas#confetti {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .card {
+      position: relative;
+      z-index: 1;
+      background: linear-gradient(135deg, #2d0a5e 0%, #4a0e8f 100%);
+      border: 2px solid #ff6bcb;
+      border-radius: 24px;
+      padding: 40px 36px;
+      max-width: 440px;
+      width: 92vw;
+      text-align: center;
+      box-shadow: 0 0 60px #ff6bcb44, 0 0 120px #7c3aed22;
+    }
+
+    h1 {
+      font-family: 'Pacifico', cursive;
+      font-size: clamp(2rem, 6vw, 2.8rem);
+      color: #ffdf6b;
+      text-shadow: 0 0 20px #ffb700aa;
+      margin-bottom: 8px;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { text-shadow: 0 0 20px #ffb700aa; }
+      50% { text-shadow: 0 0 40px #ffb700ff, 0 0 60px #ff6b0066; }
+    }
+
+    .subtitle {
+      color: #d8b4fe;
+      font-size: 1rem;
+      margin-bottom: 28px;
+    }
+
+    /* Video wrapper */
+    .video-wrapper {
+      position: relative;
+      display: none;
+      margin: 0 auto 20px;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 3px solid #ff6bcb;
+      box-shadow: 0 0 30px #ff6bcb66;
+      width: 100%;
+      max-width: 360px;
+      aspect-ratio: 4/3;
+      background: #000;
+    }
+
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      transform: scaleX(-1); /* mirror */
+    }
+
+    .countdown-overlay {
+      position: absolute;
+      inset: 0;
+      background: #1a0533cc;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Pacifico', cursive;
+      font-size: 6rem;
+      color: #ffdf6b;
+      text-shadow: 0 0 40px #ffb700;
+      transition: opacity 0.3s;
+    }
+
+    .photo-preview {
+      display: none;
+      margin: 0 auto 16px;
+      border-radius: 16px;
+      border: 3px solid #7c3aed;
+      box-shadow: 0 0 20px #7c3aed66;
+      max-width: 360px;
+      width: 100%;
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-block;
+      cursor: pointer;
+      font-family: 'Nunito', sans-serif;
+      font-weight: 700;
+      font-size: 1rem;
+      border: none;
+      border-radius: 50px;
+      padding: 14px 30px;
+      margin: 6px;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .btn:hover { transform: scale(1.05); }
+    .btn:active { transform: scale(0.97); }
+
+    .btn-open {
+      background: linear-gradient(135deg, #ff6bcb, #ff3d9a);
+      color: #fff;
+      box-shadow: 0 4px 20px #ff6bcb66;
+      font-size: 1.1rem;
+      padding: 16px 36px;
+    }
+
+    .btn-snap {
+      background: linear-gradient(135deg, #ffdf6b, #ffb700);
+      color: #1a0533;
+      box-shadow: 0 4px 20px #ffb70066;
+    }
+
+    .btn-download {
+      background: linear-gradient(135deg, #7c3aed, #4f46e5);
+      color: #fff;
+      box-shadow: 0 4px 20px #7c3aed66;
+    }
+
+    .btn-retake {
+      background: transparent;
+      color: #d8b4fe;
+      border: 2px solid #7c3aed;
+      box-shadow: none;
+    }
+
+    #controls { display: none; margin-top: 8px; }
+    #photoControls { display: none; margin-top: 8px; }
+
+    .status {
+      color: #f9a8d4;
+      font-size: 0.875rem;
+      margin-top: 12px;
+      min-height: 20px;
+    }
+
+    /* Flash animation for snap */
+    .flash {
+      position: fixed;
+      inset: 0;
+      background: white;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 999;
+      animation: flashAnim 0.4s ease-out forwards;
+    }
+    @keyframes flashAnim {
+      0% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="confetti"></canvas>
+
+<div class="card">
+  <h1>🎉 Happy Birthday! 🎂</h1>
+  <p class="subtitle">Your special surprise awaits… 🎁</p>
+
+  <div class="video-wrapper" id="videoWrapper">
+    <video id="video" autoplay playsinline muted></video>
+    <div class="countdown-overlay" id="countdownOverlay" style="display:none;"></div>
+  </div>
+
+  <img class="photo-preview" id="photoPreview" alt="Your birthday photo"/>
+  <canvas id="snapCanvas" style="display:none;"></canvas>
+
+  <button class="btn btn-open" id="openBtn" onclick="startCamera()">Click to Open Your Surprise 🎁</button>
+
+  <div id="controls">
+    <button class="btn btn-snap" onclick="snapPhoto()">📸 Take Photo</button>
+  </div>
+
+  <div id="photoControls">
+    <button class="btn btn-download" onclick="downloadPhoto()">⬇️ Save Photo</button>
+    <button class="btn btn-retake" onclick="retake()">🔄 Retake</button>
+  </div>
+
+  <p class="status" id="status"></p>
+</div>
+
+<script>
+  // === Confetti ===
+  const canvas = document.getElementById('confetti');
+  const ctx = canvas.getContext('2d');
+  let pieces = [];
+  const colors = ['#ff6bcb','#ffdf6b','#7c3aed','#4ade80','#38bdf8','#f97316'];
+
+  function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  function spawnConfetti(n = 6) {
+    for (let i = 0; i < n; i++) {
+      pieces.push({
+        x: Math.random() * canvas.width,
+        y: -10,
+        r: Math.random() * 7 + 4,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        speed: Math.random() * 2 + 1.5,
+        wobble: Math.random() * 2 - 1,
+        angle: Math.random() * Math.PI * 2,
+        spin: (Math.random() - 0.5) * 0.15,
+        shape: Math.random() > 0.5 ? 'rect' : 'circle'
+      });
+    }
+  }
+
+  function drawConfetti() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    pieces.forEach(p => {
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.angle);
+      ctx.fillStyle = p.color;
+      ctx.globalAlpha = 0.85;
+      if (p.shape === 'rect') {
+        ctx.fillRect(-p.r, -p.r / 2, p.r * 2, p.r);
+      } else {
+        ctx.beginPath();
+        ctx.arc(0, 0, p.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+      p.y += p.speed;
+      p.x += p.wobble;
+      p.angle += p.spin;
+    });
+    pieces = pieces.filter(p => p.y < canvas.height + 20);
+    spawnConfetti(3);
+    requestAnimationFrame(drawConfetti);
+  }
+  drawConfetti();
+
+  // === Camera ===
+  let stream = null;
+
+  async function startCamera() {
+    const btn = document.getElementById('openBtn');
+    const status = document.getElementById('status');
+    btn.disabled = true;
+    status.textContent = 'Requesting camera access…';
+
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+      const video = document.getElementById('video');
+      video.srcObject = stream;
+      await video.play();
+
+      btn.style.display = 'none';
+      document.getElementById('videoWrapper').style.display = 'block';
+      status.textContent = '';
+
+      // Countdown 3 2 1
+      await countdown();
+
+      document.getElementById('controls').style.display = 'block';
+      status.textContent = '😄 Strike a pose and take your birthday selfie!';
+    } catch (err) {
+      btn.disabled = false;
+      if (err.name === 'NotAllowedError') {
+        status.textContent = '❌ Camera permission denied. Please allow camera access and try again.';
+      } else if (err.name === 'NotFoundError') {
+        status.textContent = '❌ No camera found on this device.';
+      } else {
+        status.textContent = '❌ Could not access camera: ' + err.message;
+      }
+    }
+  }
+
+  function countdown() {
+    return new Promise(resolve => {
+      const overlay = document.getElementById('countdownOverlay');
+      overlay.style.display = 'flex';
+      let count = 3;
+      overlay.textContent = count;
+      const interval = setInterval(() => {
+        count--;
+        if (count === 0) {
+          overlay.textContent = '🎉';
+          setTimeout(() => {
+            overlay.style.display = 'none';
+            clearInterval(interval);
+            resolve();
+          }, 600);
+        } else {
+          overlay.textContent = count;
+        }
+      }, 800);
+    });
+  }
+
+  function snapPhoto() {
+    const video = document.getElementById('video');
+    const snapCanvas = document.getElementById('snapCanvas');
+    snapCanvas.width = video.videoWidth || 640;
+    snapCanvas.height = video.videoHeight || 480;
+    const c = snapCanvas.getContext('2d');
+    // Mirror to match preview
+    c.save();
+    c.translate(snapCanvas.width, 0);
+    c.scale(-1, 1);
+    c.drawImage(video, 0, 0);
+    c.restore();
+
+    // Add birthday text overlay
+    c.font = `bold ${Math.round(snapCanvas.width * 0.06)}px Pacifico, cursive`;
+    c.fillStyle = '#ffdf6b';
+    c.textAlign = 'center';
+    c.shadowColor = '#ff6bcb';
+    c.shadowBlur = 16;
+    c.fillText('🎉 Happy Birthday! 🎂', snapCanvas.width / 2, snapCanvas.height - 24);
+
+    // Flash effect
+    const flash = document.createElement('div');
+    flash.className = 'flash';
+    document.body.appendChild(flash);
+    setTimeout(() => flash.remove(), 500);
+
+    // Show preview
+    const dataUrl = snapCanvas.toDataURL('image/png');
+    const preview = document.getElementById('photoPreview');
+    preview.src = dataUrl;
+    preview.style.display = 'block';
+
+    // Stop video
+    stopStream();
+    document.getElementById('videoWrapper').style.display = 'none';
+    document.getElementById('controls').style.display = 'none';
+    document.getElementById('photoControls').style.display = 'block';
+    document.getElementById('status').textContent = '🎂 Your birthday photo is ready!';
+  }
+
+  function downloadPhoto() {
+    const link = document.createElement('a');
+    link.download = 'happy-birthday-selfie.png';
+    link.href = document.getElementById('snapCanvas').toDataURL('image/png');
+    link.click();
+  }
+
+  function retake() {
+    document.getElementById('photoPreview').style.display = 'none';
+    document.getElementById('photoControls').style.display = 'none';
+    document.getElementById('openBtn').style.display = 'inline-block';
+    document.getElementById('openBtn').disabled = false;
+    document.getElementById('status').textContent = '';
+    stream = null;
+  }
+
+  function stopStream() {
+    if (stream) {
+      stream.getTracks().forEach(t => t.stop());
+      stream = null;
+    }
+  }
+</script>
+</body>
+</html>
